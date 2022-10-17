@@ -1,0 +1,80 @@
+---
+title: "Percentage of Parents'Categories"
+author: "Keshav Bhusal"
+date: "2022-10-11"
+output:
+html_document: default
+---
+
+### Setting up the environment
+
+Install the `tidyverse` package `install.packages("tidyverse")`
+
+```{r loading packages }
+   library(tidyverse)
+   library(dplyr)
+   library(readr)
+   
+```
+
+### Importing the data set
+
+Load the BRFSS_2020 data file [BRFSS_2020.csv](https://arizona.app.box.com/file/1015177716447?s=4s9owh47wyny08u9tkui6h34pmek4kig)
+
+### Creating the dataframe with required variables
+
+```{r}
+limited_dataframe <- BRFSS_2020%>%
+  select("_SEX", BIRTHSEX, CHILDREN, MARITAL) %>% 
+  rename(SEX = "_SEX")
+```
+
+### Transformation of variables into groups
+
+```{r}
+limited_dataframe$MARITAL[limited_dataframe$MARITAL==2]<-"single_parent"
+limited_dataframe$MARITAL[limited_dataframe$MARITAL==3]<-"single_parent"
+limited_dataframe$MARITAL[limited_dataframe$MARITAL==4]<-"single_parent"
+limited_dataframe$MARITAL[limited_dataframe$MARITAL==5]<-"single_parent"
+limited_dataframe$MARITAL[limited_dataframe$MARITAL==1]<-"double_parent"
+limited_dataframe$MARITAL[limited_dataframe$MARITAL==6]<-"double_parent"
+limited_dataframe$MARITAL[limited_dataframe$MARITAL==9]<-"refused"
+limited_dataframe$CHILDREN[limited_dataframe$CHILDREN==88]<-0
+limited_dataframe$CHILDREN[limited_dataframe$CHILDREN==99]<-NA
+limited_dataframe$SEX[limited_dataframe$SEX==2]<-"female"
+limited_dataframe$SEX[limited_dataframe$SEX==1]<-"male"
+```
+
+### Creating a new variable with parents categorization
+
+```{r}
+new_column <- limited_dataframe %>% 
+  mutate(parent_type = case_when(MARITAL == "single_parent" & SEX == "male" ~ "father_only",
+                             MARITAL == "single_parent" & SEX == "female"  ~ "mother_only", 
+                             MARITAL == "refused" ~ "refused", 
+                             MARITAL == "double_parent" ~ "double_parent"))
+```
+
+### Creating the smaller required dateframe
+
+```{r}
+dataframe <- new_column %>%
+  select(CHILDREN, parent_type) 
+```
+
+### Grouping and aggregating the categories
+
+```{r}
+categorical <- dataframe %>%
+  group_by(parent_type) %>%
+  summarise(CHILDREN = sum(CHILDREN, na.rm = TRUE)) %>% 
+  drop_na(parent_type)
+```
+
+### Calculating the percentage of parents category
+
+```{r}
+  percentage <- categorical%>%
+  mutate(total= sum(CHILDREN)) %>% 
+  mutate(percentage=CHILDREN/total*100)
+```

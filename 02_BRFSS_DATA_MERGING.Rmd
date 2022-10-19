@@ -1,0 +1,147 @@
+---
+title: "Merging the BRFSS data files"
+author: "Keshav Bhusal"
+date: "2022-10-18"
+output:html_document: default
+---
+
+### Setting up the environment
+
+Install the `tidyverse` package `install.packages("tidyverse")` Install the `rmarkdown` package `install.packages("rmarkdown")`
+
+```{r loading packages }
+   library(tidyverse)
+   library(dplyr)
+   library(readr)
+   library(rmarkdown)
+   
+```
+
+### Importing the data set
+
+Loading all the BRFSS data file from 2017 to 2021
+
+[brfss2017](D:/RA_Works/DATA_SETS/BRFSS_2017.csv)
+[brfss2018](D:/RA_Works/DATA_SETS/BRFSS_2018.csv)
+[brfss2019](D:/RA_Works/DATA_SETS/BRFSS_2019.csv)
+[brfss2020](D:/RA_Works/DATA_SETS/BRFSS_2020.csv)
+[brfss2021](D:/RA_Works/DATA_SETS/BRFSS_2021.csv)
+
+```{r}
+brfss2017 <- read_csv("D:/RA_Works/DATA_SETS/BRFSS_2017.csv")
+brfss2018 <- read_csv("D:/RA_Works/DATA_SETS/BRFSS_2018.csv")
+brfss2019 <- read_csv("D:/RA_Works/DATA_SETS/BRFSS_2019.csv")
+brfss2020 <- read_csv("D:/RA_Works/DATA_SETS/BRFSS_2020.csv")
+brfss2021 <- read_csv("D:/RA_Works/DATA_SETS/BRFSS_2021.csv")
+
+```
+
+### Merging the multi-year data files
+
+First observing the **common columns** occurring in both years **2017** and **2018**
+
+```{r}
+brfss1718 <- intersect(colnames(brfss2017), colnames(brfss2018))
+brfss1718
+```
+
+Now, combining/binding the data files of the years **2017** and **2018** on the given common columns.
+
+```{r}
+brfss17_18 <- rbind(brfss2017[ , brfss1718], brfss2018[ , brfss1718])
+```
+
+```{r}
+glimpse(brfss17_18)
+```
+
+Similarly, intersecting and combining/binding the data files of the years **2019** and **2020**.
+
+```{r}
+brfss1920 <- intersect(colnames(brfss2019), colnames(brfss2020))
+brfss1920
+```
+
+```{r}
+brfss19_20 <- rbind(brfss2019[ , brfss1920], brfss2020[ , brfss1920])
+```
+
+```{r}
+glimpse(brfss19_20)
+```
+
+Similarly, intersecting and combining/binding the data files of the years **2017-2018** and **2019-2020**.
+
+```{r}
+brfss1720 <- intersect(colnames(brfss17_18), colnames(brfss19_20))
+brfss1720
+```
+
+```{r}
+brfss17_20 <- rbind(brfss17_18[ , brfss1720], brfss19_20[ , brfss1720])
+```
+
+```{r}
+glimpse(brfss17_20)
+```
+
+Finally, intersecting and combining/binding the data files of the years **2017-2020** and **2021**.
+
+```{r}
+brfss_all <- intersect(colnames(brfss17_20), colnames(brfss2021))
+brfss_all
+```
+
+```{r}
+brfss_all_17_21 <- rbind(brfss17_20[ , brfss_all], brfss2021[ , brfss_all])
+```
+
+```{r}
+glimpse(brfss_all_17_21)
+```
+
+Thus, 'brfss_all_17_21' is the final merged data file with **147** variables and **2146371** observations.
+
+### Creating the dataframe with required variables
+
+I have hereby created the data frame of the required variables for the calculation of **percentage of single parents**. I took the `CHILDREN` and `MARITAL` variables.
+
+I could not account for the gender of the single parent because `_SEX` (a calculated variable), is was not commonly available in all the year's data sets and so it got eventually discarded.
+
+```{r}
+limited_dataframe <- brfss_all_17_21 %>%
+  select(CHILDREN, MARITAL)
+```
+
+### Transformation of variables into groups
+
+Based on the area of interest and making things look clear and comfortable, I just transformed the responses to the categories.
+
+```{r}
+limited_dataframe$MARITAL[limited_dataframe$MARITAL==2]<-"single_parent"
+limited_dataframe$MARITAL[limited_dataframe$MARITAL==3]<-"single_parent"
+limited_dataframe$MARITAL[limited_dataframe$MARITAL==4]<-"single_parent"
+limited_dataframe$MARITAL[limited_dataframe$MARITAL==5]<-"single_parent"
+limited_dataframe$MARITAL[limited_dataframe$MARITAL==1]<-"double_parent"
+limited_dataframe$MARITAL[limited_dataframe$MARITAL==6]<-"double_parent"
+limited_dataframe$MARITAL[limited_dataframe$MARITAL==9]<-"refused"
+limited_dataframe$CHILDREN[limited_dataframe$CHILDREN==88]<-0
+limited_dataframe$CHILDREN[limited_dataframe$CHILDREN==99]<-NA
+```
+
+### Grouping and aggregating the categories
+
+```{r}
+categorical <- limited_dataframe %>%
+  group_by(MARITAL) %>%
+  summarise(CHILDREN = sum(CHILDREN, na.rm = TRUE)) %>% 
+  drop_na(MARITAL)
+```
+
+### Calculating the percentage of parents category
+
+```{r}
+  percentage <- categorical%>%
+  mutate(total= sum(CHILDREN)) %>% 
+  mutate(percentage=CHILDREN/total*100)
+```
